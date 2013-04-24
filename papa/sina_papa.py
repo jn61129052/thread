@@ -11,12 +11,24 @@ from bs4 import BeautifulSoup
 import time
 from string import strip
 start = time.clock()
-url = "http://www.163.com"  # must add "http://"
+url = "http://www.sina.com.cn"  # must add "http://"
 htmlline = urllib.urlopen(url).read()
 print htmlline.count('href')
+def get_response_charset(charset):
+    if charset == 'utf-8':
+        return  'utf-8'
+    elif charset == 'gb2312' or charset == 'GBK':
+        return 'GBK'
 def get_charset(url):      #Determine the URL-encoded
-    fopen1 = urllib.urlopen(url).info()
-    return fopen1.getparam('charset')
+    fopen1 = urllib.urlopen(url)
+    charset = fopen1.info().getparam('charset')
+    if charset:
+        charset = get_response_charset(charset)
+        return charset
+    else:
+        charset = fopen1.headers['Content-Type'].split(' charset=')[1].lower()
+        charset = get_response_charset(charset)
+        return charset
 soup = BeautifulSoup(htmlline.decode(get_charset(url))) 
 links = soup.findAll('a')
 regex = re.compile(r'([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')
@@ -42,7 +54,6 @@ for item in links:
             else: 
                 href_link.append(linkname+':'+linkaddr+'\n')
                 count += 1
-print count
 output_file(href_link)
 end = time.clock()
 print end-start
