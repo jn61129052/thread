@@ -4,6 +4,7 @@ Created on 2013-4-16
 @author: Administrator
 '''
 #! /usr/bin/env python
+#coding=utf-8
 import re
 import urllib2 as url
 import urllib
@@ -29,12 +30,12 @@ def get_charset(url):      #Determine the URL-encoded
         return charset
     else:
         #charset = fopen1.headers['Content-Type'].split(' charset=')[1].lower()
-        charset = chardet.detect(fopen1.read())['encoding']  
+        charset = chardet.detect(fopen1.read())['encoding']    
         charset = get_response_charset(charset)
         return charset
-soup = BeautifulSoup(htmlline.decode(get_charset(url)))  
+soup = BeautifulSoup(htmlline.decode(get_charset(url)))   
 links = soup.findAll('a')
-regex = re.compile(r'([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?') 
+regex = re.compile(r'([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
 count = 0
 def output_file(href_link): 
     file_object = open('D:/1.txt','a')
