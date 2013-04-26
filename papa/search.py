@@ -4,13 +4,13 @@ Created on 2013-4-15
 '''
 #! /usr/bin/env python
 # -*- coding: <utf-8> -*-
-import urllib2 as url
+import urllib2
 import string
 import urllib
 import re
 from string import join
 import time
-import MySQLdb
+#import MySQLdb
 import sys
 key = raw_input("Please input a keyword:")
 page_num = int(raw_input("Please input what number you want:"))
@@ -19,7 +19,7 @@ def baidu_search(keyword):
     for i in range(page_num):
         i = str(i)+'0'
         p = {'wd': keyword,'pn': i}
-        html = url.urlopen("http://www.baidu.com/s?"+urllib.urlencode(p)).read()
+        html = urllib2.urlopen("http://www.baidu.com/s?"+urllib.urlencode(p)).read()
         result.append(html)
         html = ' '.join(result)
     return html
@@ -51,19 +51,20 @@ for item in arrList:
         title = clearTag(link[1]).encode('UTF-8').decode('UTF-8')
     else:
         print "This record is wrong!"
-    try:
-        conn = MySQLdb.connect(host='localhost',user='root',passwd='root',db='test',port=3306,charset='utf8')
-        cursor = conn.cursor()
-        value = [ title,url ]
-        sql = "insert into url(id,title,url) values (NULL,%s,%s)"
-        cursor.execute(sql,value)
-    except MySQLdb.Error,e:
-         print "Mysql Error %d: %s" % (e.args[0], e.args[1])
-    finally:
-        conn.commit()
-        cursor.close()
-        conn.close()
-    print url
+#     try:
+#         conn = MySQLdb.connect(host='localhost',user='root',passwd='root',db='test',port=3306,charset='utf8')
+#         cursor = conn.cursor()
+#         value = [ title,url ]
+#         sql = "insert into url(id,title,url) values (NULL,%s,%s)"
+#         cursor.execute(sql,value)
+#     except MySQLdb.Error,e:
+#          print "Mysql Error %d: %s" % (e.args[0], e.args[1])
+#     finally:
+#         conn.commit()
+#         cursor.close()
+#         conn.close()
+    u = urllib2.urlopen(url)
+    print u.url
     print title
 end = time.clock()
 print end-start
