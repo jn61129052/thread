@@ -11,8 +11,9 @@ from bs4 import BeautifulSoup
 import time
 from string import strip
 import chardet
+
 start = time.clock()
-url = "http://www.zol.com.cn/"  # must add "http://"
+url = "http://www.163.com/"  # must add "http://"
 htmlline = urllib.urlopen(url).read()
 def get_response_charset(charset):   
     if charset.lower() == 'utf-8':
@@ -42,7 +43,7 @@ def output_file(href_link,count):
         for i in range(0,count):
             #print href_link[i]
             try:
-                file_object.writelines(href_link[i])
+                file_object.write(href_link[i])
             except UnicodeEncodeError,e:
                 print e
     except IOError:
