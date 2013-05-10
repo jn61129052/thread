@@ -14,7 +14,7 @@ def get_response_charset(charset):
             return  'utf-8'
         elif charset.lower() == 'gb2312' or charset.lower() == 'gbk' or charset.lower() == 'iso-8859-1':
             return 'gb18030'
-url = 'http://www.sina.com.cn/'
+url = 'http://blog.sina.com.cn/s/blog_5054769e0102e8sv.html?tj=1'
 html = requests.get(url)
 #print html.headers['content-type'].split('charset=')[-1]
 regex1 = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
