@@ -32,24 +32,27 @@ class Crawler(object):
     def Spider(self):
         if url.strip():
             try:
-                htmlline = requests.get(url.strip())#,timeout = 2 )
+                htmlline = requests.get(url.strip(),timeout = 30 )
             except Exception,e:
                 print e
-            if htmlline.text:
+            if htmlline.content:
                 try:
                     htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                    soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
                 except UnicodeEncodeError,e:
                     #regex1 = r'<meta.+?charset=([-\w]+)'
                     regex_charset = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
                     code = re.search(regex_charset,htmlline.content)
                     htmlline.encoding = code.group(1)
                     htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                    soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
                 except TypeError,e:
                     htmlline.encoding = chardet.detect(htmlline.content)['encoding']
                     htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                finally:
                     soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                links = soup.find_all('a',href=re.compile('^http|^/'))
+                finally:
+                    #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+                    links = soup.find_all('a',href=re.compile('^http|^/'))
                 regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
                 href_link = []
                 for item in links:
@@ -69,6 +72,7 @@ class Crawler(object):
                                     #href_link.append(linkname+':'+linkaddr+'\n')
                                     href_link.append(linkaddr)
                 self.database.insert_data(href_link)
+                self.database.conn_stop()
                 print len(href_link)
 #                 for i in xrange(len(href_link)):
 #                     link_url = href_link[i]
@@ -77,8 +81,8 @@ class Crawler(object):
                     
 class DataBase(object):
     def __init__(self,dbfile):
-        if os.path.isfile(dbfile):
-            os.remove(dbfile)
+#         if os.path.isfile(dbfile):
+#             os.remove(dbfile)
         self.conn = sqlite3.connect(dbfile)
         self.conn.text_factory = str
         self.cmd = self.conn.cursor()
@@ -91,7 +95,7 @@ class DataBase(object):
         self.conn.commit()
         
     def insert_data(self,href_link):
-        for i in xrange(len(href_link)):
+        for i in range(len(href_link)):
             url = href_link[i]
             if url is not None:    
                 try:
@@ -100,15 +104,19 @@ class DataBase(object):
                 except Exception,e:
                      print e
         self.conn.commit()
+    def conn_stop(self):
         self.conn.close()
     
     
     
 start = time.clock()
-url = 'http://www.sina.com.cn'
-Spider = Crawler(url,'J:/sql.db')
+with open('D:/1.txt','r') as file_object:
+    for url in file_object:
+        print url
+        Spider = Crawler(url,'D:/sql.db')
 # insert = DataBase("J:/sqllite.sql")
 # insert.insert_data(Spider.Spider())
-Spider.Spider()
+        Spider.Spider()
+    
 end = time.clock()
 print end-start
