@@ -1,3 +1,6 @@
+#!/usr/bin/python
+#-*- coding: gbk -*-
+#coding=gbk 
 '''
 Created on 2013-5-7
 
@@ -10,34 +13,61 @@ import chardet
 import time
 import sqlite3
 import os
-from string import count
+import hashlib
 class Crawler(object):
-    def __init__(self,Dbfile):#,ThreadNum,Key,Depth,Dbfile):
-        #self.url = Url
+    def __init__(self,Dbfile,Depth,Url):#,ThreadNum,Key):
+        
+        self.count = 0
+        #种子URL
+        self.url = Url
 #         self.threadnum = ThreadNum
 #         self.key = Key
-#         self.depth = Depth
+        #爬行深度
+        self.depth = Depth
+        #当前爬行深度
+        self.currentdepth = 1
+        #已经访问的链接
+        self.href_link = []
+        #经过处理的链接
+        self.geturls = []
+        #创建hash表，判断是否
+        self.hashmap = []
+        #数据库存储文件
         self.dbfile = Dbfile
+        #创建数据库处理对象
         self.database = DataBase(self.dbfile)
         
+    #编码规则化处理
     def get_response_charset(self,charset):
         if charset.lower() == 'utf-8' or charset.lower == 'utf8':
             return  'utf-8'
         elif charset.lower() == 'gb2312' or charset.lower() == 'gbk' or charset.lower() == 'iso-8859-1':
             return 'gb18030'
-        
+    #BeautifulSoup 无法正确处理;&nbsp这类的字符，过滤处理类
     def character_filter(self,character):
         character = character.replace(u'\xa0',' ').strip(u'\r\n').strip(u'\n') #BeautifulSoup can not encode ;&nbsp so replace it to ' '
         return character   
-    
+    #数据库关闭类
     def conn_close(self):
         self.database.conn_stop()
+     
+    #list去重，空间复杂度过大，pass
+#     def unique(self,old_list):
+#         return list(set(old_list))
 
+
+    #MD5处理url，用于去重
+    def md5(self,urls):
+        return hashlib.new("md5", urls).hexdigest()
+    
+    #主爬虫类，处理
     def Spider(self,url):
+        
         if url.strip():
             try:
                 global htmlline
-                htmlline = requests.get(url.strip())#,timeout = 30 )
+                htmlline = requests.get(url.strip(),timeout = 3 )
+                self.count += 1
             except Exception,e:
                 print e
             try:
@@ -53,6 +83,7 @@ class Crawler(object):
                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
                         soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
                     except TypeError,e:
+                        print 'chardet'
                         htmlline.encoding = chardet.detect(htmlline.content)['encoding']
                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
                         soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
@@ -60,7 +91,7 @@ class Crawler(object):
                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
                         links = soup.find_all('a',href=re.compile('^http|^/'))
                     regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
-                    href_link = []
+#                     href_link = []
                     for item in links:
                         if 'href' in str(item):
                             if regex.search(str(item)):
@@ -72,12 +103,20 @@ class Crawler(object):
                                 if linkname is not None:  
                                     self.character_filter(linkname)
                                     self.character_filter(linkaddr)
-                                    if 'NoneType' in str(type(linkname)):
-                                        href_link.append(linkaddr)
-                                    else: 
+                                    #if 'NoneType' in str(type(linkname)):
+                                    
+                                    if self.md5(linkaddr) not in self.hashmap:                                   
+                                        self.geturls.append(linkaddr)
+                                        self.hashmap.append(self.md5(linkaddr))
+                                    #self.href_link.append(linkaddr)
+                                    #else: 
                                         #href_link.append(linkname+':'+linkaddr+'\n')
-                                        href_link.append(linkaddr)
-                    self.database.insert_data(href_link)
+                                        #href_link.append(linkaddr)
+                    #self.href_link = set(self.href_link)
+                    #print len(self.unique(self.geturls))
+#                     for urls in self.unique(self.geturls):
+#                         print urls
+#                     self.database.insert_data(self.unique(self.geturls))
                     #self.database.conn_stop()
                     #print len(href_link)
     #                 for i in xrange(len(href_link)):
@@ -85,13 +124,28 @@ class Crawler(object):
     #                     print link_url
             except Exception,e:
                 print e
-                pass                        
+                pass  
+             
+    def depth_spider(self):
+        while self.currentdepth <= self.depth:
+            if len(self.href_link) == 0:
+                self.href_link.append(self.url)
+            print '\nCurrent depth is: %d \n' % self.currentdepth
+            #print len(self.href_link)
+            for i in self.href_link:
+                #print i
+                self.Spider(i)
+            self.currentdepth += 1
+            self.href_link = []
+            self.href_link.extend(self.geturls)
+            #print len(self.href_link)
+        self.database.insert_data(self.geturls)
+        self.conn_close()
+        #print self.count                     
                     
 class DataBase(object):
     
-    conn = None;
-    #count = 0
-    
+    conn = None
     def __init__(self,dbfile):
 #         if os.path.isfile(dbfile):
 #             os.remove(dbfile)
@@ -134,19 +188,24 @@ class DataBase(object):
 start = time.clock()
 # Spider = Crawler(url,'J:/sql.db')
 # Spider.Spider()
-# class Save(DataBase):
-#     def __init__(self):
-#         DataBase.conn_stop(self)
-#         self.database.conn_stop()
+# # class Save(DataBase):
+# #     def __init__(self):
+# #         DataBase.conn_stop(self)
+# #         self.database.conn_stop()
 
 
-Spider = Crawler('J:/sql.db')
-with open('J:/2.txt','r') as file_object:
-
-    for url in file_object:
-        print url
-        Spider.Spider(url)
-    Spider.conn_close()
+Spider = Crawler('J:/sql.db',2,'http://www.sohu.com') 
+'''
+In order to enhance the speed, the write 
+the class url handler class alone method, the 
+cycle so you do not need to repeatedly 
+call the main method of handling database 
+'''
+# with open('J:/1.txt','r') as file_object:
+# 
+#     for url in file_object:
+#         print url
+Spider.depth_spider()
 #     save = Save()
 #     save()
         
