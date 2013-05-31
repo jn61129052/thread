@@ -1,59 +1,78 @@
-'''
-Created on 2013-4-24
+#!/usr/bin/python
+#-*- coding: gbk -*-
+#coding=gbk 
 
-@author: Administrator
-'''
-from bs4 import BeautifulSoup
+import Queue
+import threading
+import time
 import requests
-import re
-def character_filter(character):
-    character = character.replace(u'\xa0',' ').strip(u'\r\n').strip(u'\n') #BeautifulSoup can not encode ;&nbsp so replace it to ' '
-    return character  
-def get_response_charset(charset):   
-        if charset.lower() == 'utf-8' or charset.lower() == 'utf8':
-            return  'utf-8'
-        elif charset.lower() == 'gb2312' or charset.lower() == 'gbk' or charset.lower() == 'iso-8859-1':
-            return 'gb18030'
-url = 'http://blog.sina.com.cn/s/blog_5054769e0102e8sv.html?tj=1'
-html = requests.get(url)
-#print html.headers['content-type'].split('charset=')[-1]
-regex1 = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
-code = re.search(regex1,html.content)
-result = code.group(1)
-html.encoding = result
-html.encoding = get_response_charset(html.encoding)
-soup = BeautifulSoup(html.content.decode('utf-8','ignore'))
-links = soup.findAll('a')
-regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
-count = 0
-def output_file(href_link,count): 
-        try:
-            with open('J:/2.txt','a') as file_object:
-                for i in range(0,count):
-                    try:
-                        file_object.write(href_link[i])
-                    except UnicodeEncodeError,e:
-                        pass
-        except IOError:
-            print "IO Error!"
-href_link = []
-def character_filter(character):
-    character = character.replace(u'\xa0',' ').strip(u'\r\n').strip(u'\n') #BeautifulSoup can not encode ;&nbsp so replace it to ' '
-    return character  
-for item in links:
-        if 'href' in str(item):
-            if regex.search(str(item)):
-                linkname = item.string
-                linkaddr = item['href']
-                if linkname is not None:  
-                    character_filter(linkname)
-                    character_filter(linkaddr)
-                    if 'NoneType' in str(type(linkname)):
-                        href_link.append(linkaddr+'\n')
-                        count += 1
-                    else: 
-                        href_link.append(linkname+':'+linkaddr+'\n')
-                        #href_link.append(linkaddr+'\n')
-                        count += 1
-output_file(href_link,count)
-print count
+from bs4 import BeautifulSoup
+
+class WorkManager(object):
+    def __init__(self, work_num=1000,thread_num=2):
+        self.work_queue = Queue.Queue()
+        self.threads = []
+        self.__init_work_queue(work_num)   #多线程，工作线程数
+        self.__init_thread_pool(thread_num) #多线程，生成线程数
+
+    """
+        初始化线程
+    """
+    def __init_thread_pool(self,thread_num):
+        for i in range(thread_num):
+            self.threads.append(Work(self.work_queue))
+
+    """
+        初始化工作队列
+    """
+    def __init_work_queue(self, jobs_num):
+        for i in range(jobs_num):
+            self.add_job(do_job, i)
+
+    """
+        添加一项工作入队
+    """
+    def add_job(self, func, *args):
+        self.work_queue.put((func, list(args)))#任务入队，Queue内部实现了同步机制
+    """
+        检查剩余队列任务
+    """
+    def check_queue(self):
+        return self.work_queue.qsize()
+
+    """
+        等待所有线程运行完毕
+    """   
+    def wait_allcomplete(self):
+        for item in self.threads:
+            if item.isAlive():item.join()
+
+class Work(threading.Thread):
+    def __init__(self, work_queue):
+        threading.Thread.__init__(self)
+        self.work_queue = work_queue
+        self.start()
+
+    def run(self):
+        #死循环，从而让创建的线程在一定条件下关闭退出
+        while True:
+            try:
+                do, args = self.work_queue.get(block=False)#任务异步出队，Queue内部实现了同步机制
+                do(args)
+                self.work_queue.task_done()#通知系统任务完成
+            except Exception,e:
+                print str(e)
+                break
+
+#具体要做的任务
+def do_job(args):
+    print args
+    time.sleep(0.1)#模拟处理时间
+    print threading.current_thread(), list(args)
+
+if __name__ == '__main__':
+    start = time.time()
+    work_manager =  WorkManager(100, 20)#或者work_manager =  WorkManager(10000, 20)
+    work_manager.wait_allcomplete()
+    end = time.time()
+    print "cost all time: %s" % (end-start)

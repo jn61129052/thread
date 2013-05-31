@@ -18,37 +18,37 @@ from threadPool import ThreadPool
 
 logger = logging.getLogger()
 
-#页面爬行类
+#椤甸潰鐖绫�
 class Crawler(object):
 	def __init__(self,url,depth,threadNum,dbfile,key):
-		#要获取url的队列
+		#瑕佽幏鍙杣rl鐨勯槦鍒�
 		self.urlQueue = Queue()
-		#读取的html队列
+		#璇诲彇鐨刪tml闃熷垪
 		self.htmlQueue = Queue()
-		#已经访问的url
+		#宸茬粡璁块棶鐨剈rl
 		self.readUrls = []
-		#未访问的链接
+		#鏈闂殑閾炬帴
 		self.links = []
-		#线程数
+		#绾跨▼鏁�
 		self.threadNum = threadNum
-		#数据库文件名
+		#鏁版嵁搴撴枃浠跺悕
 		self.dbfile = dbfile
-		#创建存储数据库对象
+		#鍒涘缓瀛樺偍鏁版嵁搴撳璞�
 		self.dataBase = SaveDataBase(self.dbfile) 
-		#指点线程数目的线程池
+		#鎸囩偣绾跨▼鏁扮洰鐨勭嚎绋嬫睜
 		self.threadPool = ThreadPool(self.threadNum)
-		#初始化url队列
+		#鍒濆鍖杣rl闃熷垪
 		self.urlQueue.put(url)
-		#关键字,使用console的默认编码来解码
+		#鍏抽敭瀛�浣跨敤console鐨勯粯璁ょ紪鐮佹潵瑙ｇ爜
 		self.key = key.decode(getdefaultlocale()[1]) 
-		#爬行深度
+		#鐖娣卞害
 		self.depth = depth
-		#当前爬行深度
+		#褰撳墠鐖娣卞害
 		self.currentDepth = 1
-		#当前程序运行状态
+		#褰撳墠绋嬪簭杩愯鐘舵�
 		self.state = False
 		
-	#获取当前页面的URL
+	#鑾峰彇褰撳墠椤甸潰鐨刄RL
 	def work(self,url):
 		try:
 			html = urllib2.urlopen(url).read()
@@ -66,21 +66,21 @@ class Crawler(object):
 		for i in allUrl:
 			if i['href'].startswith('/'):
 				i['href'] = url + i['href']
-			#如果该链接不在已经读取的URL列表中，把它加入该列表和队列
+			#濡傛灉璇ラ摼鎺ヤ笉鍦ㄥ凡缁忚鍙栫殑URL鍒楄〃涓紝鎶婂畠鍔犲叆璇ュ垪琛ㄥ拰闃熷垪
 			if i['href'] not in self.readUrls:
 				self.readUrls.append(i['href'])
 				self.links.append(i['href'])
-			#	print i['href'] #显示获取的链接
+			#	print i['href'] #鏄剧ず鑾峰彇鐨勯摼鎺�
 		if html:
 			self.htmlfilter(url,html)
 				
-	#匹配关键字
+	#鍖归厤鍏抽敭瀛�
 	def htmlfilter(self,url,html):
 		try:
 			if self.key:
 				soup = BeautifulSoup(html)
 				re_string = key.split()
-				#查找关键字
+				#鏌ユ壘鍏抽敭瀛�
 				if soup.findAll('meta',content = re.compile(re_string)):
 					self.htmlQueue.put((url,key,html))
 			else:
@@ -91,20 +91,20 @@ class Crawler(object):
 		self.state = True
 		print '\n[-] Start Crawling.........\n'
 		self.threadPool.startThreads()
-		#判断当前深度，确定是否继续
+		#鍒ゆ柇褰撳墠娣卞害锛岀‘瀹氭槸鍚︾户缁�
 		while self.currentDepth <= self.depth:
 			while not self.urlQueue.empty():
 				url = self.urlQueue.get()
-				self.threadPool.addJob(self.work,url)	#向线程池中添加工作任务
-				self.readUrls.append(url)	#添加已访问的url
-				self.dataBase.save(self.htmlQueue)	#保存到数据库
+				self.threadPool.addJob(self.work,url)	#鍚戠嚎绋嬫睜涓坊鍔犲伐浣滀换鍔�
+				self.readUrls.append(url)	#娣诲姞宸茶闂殑url
+				self.dataBase.save(self.htmlQueue)	#淇濆瓨鍒版暟鎹簱
 				self.threadPool.workJoin()
-			#把获取当前深度未访问的链接放入url队列	
+			#鎶婅幏鍙栧綋鍓嶆繁搴︽湭璁块棶鐨勯摼鎺ユ斁鍏rl闃熷垪	
 			for i in self.links:
 				self.urlQueue.put(i)
-			currentTime = int(time.time())	#当前时间
+			currentTime = int(time.time())	#褰撳墠鏃堕棿
 			self.currentDepth += 1
-		#结束任务
+		#缁撴潫浠诲姟
 		self.stop()
 
 	def stop(self):
@@ -112,15 +112,15 @@ class Crawler(object):
 		self.threadPool.stopThreads()
 		self.dataBase.stop()
 
-#存储数据库类
+#瀛樺偍鏁版嵁搴撶被
 class SaveDataBase(object):
 	def __init__(self,dbfile):
-		#移除现有的同名数据库
+		#绉婚櫎鐜版湁鐨勫悓鍚嶆暟鎹簱
 		if os.path.isfile(dbfile):
 			os.remove(dbfile)
-		#数据库创建链接
+		#鏁版嵁搴撳垱寤洪摼鎺�
 		self.conn = sqlite3.connect(dbfile)
-		#设置支持中文存储
+		#璁剧疆鏀寔涓枃瀛樺偍
 		self.conn.text_factory = str
 		self.cmd = self.conn.cursor()
 		self.cmd.execute('''
@@ -133,7 +133,7 @@ class SaveDataBase(object):
 		''')
 		self.conn.commit()
 
-	#保存页面代码
+	#淇濆瓨椤甸潰浠ｇ爜
 	def save(self,htmlQueue):
 		while not htmlQueue.empty():
 			(url,key,html) = htmlQueue.get()
@@ -143,7 +143,7 @@ class SaveDataBase(object):
 			except Exception,e:
 				logger.warninng(e)
 				
-	#关闭数据库连接
+	#鍏抽棴鏁版嵁搴撹繛鎺�
 	def stop(self):
 		self.conn.close()
 
@@ -167,12 +167,12 @@ class printInfo(Thread):
 		print 'End at  : %s' % self.endTime
 		print 'Spend time: %s\n' % (self.endTime - self.startTime) + 'Finish!'
 
-#日志配置函数
+#鏃ュ織閰嶇疆鍑芥暟
 def logConfig(logFile,logLevel):
-	#移除现有的同名日志文件
+	#绉婚櫎鐜版湁鐨勫悓鍚嶆棩蹇楁枃浠�
 	if os.path.isfile(logFile):
 		os.remove(logFile)
-	#数字越大记录越详细
+	#鏁板瓧瓒婂ぇ璁板綍瓒婅缁�
 	LEVELS = {
 		1:logging.CRITICAL,
 		2:logging.ERROR,
@@ -184,18 +184,18 @@ def logConfig(logFile,logLevel):
 	logging.basicConfig(filename = logFile,level = level)
 	formatter = logging.Formatter('%(actime)s %(levelname)s %(message)s')
 
-#程序自检模块
+#绋嬪簭鑷妯″潡
 def testself(dbfile):
 
 	print 'Starting TestSelf ......\n'
-	#测试网络，以获取百度源码为目标
+	#娴嬭瘯缃戠粶锛屼互鑾峰彇鐧惧害婧愮爜涓虹洰鏍�
 	url = "http://www.baidu.com"
-	netState = True		#网络状态
+	netState = True		#缃戠粶鐘舵�
 	pageSource = urllib2.urlopen(url).read()
-	if pageSource == None:	#获取不到源码，网络状态设为False
+	if pageSource == None:	#鑾峰彇涓嶅埌婧愮爜锛岀綉缁滅姸鎬佽涓篎alse
 		print 'Please check your network.'
 		netState = False
-	#测试数据库
+	#娴嬭瘯鏁版嵁搴�
 	try:
 		conn = sqlite3.connect(dbfile)
 		cur = conn.cursor()
@@ -209,7 +209,7 @@ def testself(dbfile):
 		''')
 	except Exception,e:
 		conn = None
-	# 判断数据库和网络状态
+	# 鍒ゆ柇鏁版嵁搴撳拰缃戠粶鐘舵�
 	if conn == None:
 		print 'DataBase Error!'
 	elif netState:
@@ -217,7 +217,7 @@ def testself(dbfile):
 
 if __name__ == '__main__':
 	helpInfo = '%prog -u url -d depth'
-	#命令行参数解析
+	#鍛戒护琛屽弬鏁拌В鏋�
 	optParser = OptionParser(usage = helpInfo)
 	optParser.add_option("-u",dest="url",type="string",help="Specify the begin url.")
 	optParser.add_option("-d",dest="depth",type="int",help="Specify the crawling depth.")
@@ -228,15 +228,15 @@ if __name__ == '__main__':
 	optParser.add_option("--key",metavar="key",default="",type="string",help="The keyword for crawling. Default: None.")
 	optParser.add_option("--testself",action="store_false",dest="testself",help="TestSelf")
 	(options,args) = optParser.parse_args()
-	#当参数中有testself时，执行自检
+	#褰撳弬鏁颁腑鏈塼estself鏃讹紝鎵ц鑷
 	if options.testself:
 		testself(options.dbfile)
 		#exit()
-	#当不输入参数时，提示帮助信息
+	#褰撲笉杈撳叆鍙傛暟鏃讹紝鎻愮ず甯姪淇℃伅
 	if len(sys.argv) < 5:
 		print optParser.print_help()
 	else:
-		logConfig(options.logFile,options.logLevel)	#日志配置
+		logConfig(options.logFile,options.logLevel)	#鏃ュ織閰嶇疆
 		spider = Crawler(options.url,options.depth,options.thread,options.dbfile,options.key)	
 		info = printInfo(spider)
 		spider.start()

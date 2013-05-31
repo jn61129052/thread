@@ -14,6 +14,20 @@ import time
 import sqlite3
 import os
 import hashlib
+import Queue
+import threading
+# 
+# urlQueue = Queue.Queue()
+# 
+# class ThreadClass(threading.Thread):
+#     def __init__(self,urlQueue):
+#         self.urlQueue = urlQueue
+#     
+#     def run(self):
+#         while True:
+#             host = self.urlQueue.get()
+#             self.urlQueue.task_done()
+            
 class Crawler(object):
     def __init__(self,Dbfile,Depth,Url):#,ThreadNum,Key):
         
@@ -60,6 +74,15 @@ class Crawler(object):
     def md5(self,urls):
         return hashlib.new("md5", urls).hexdigest()
     
+#     def handleEncoding(self,response):
+#         if response.encoding == 'ISO-8859-1':
+#             charset_re = re.compile("((^|;)\s*charset=)([^\"]*)", re.M)
+#             charset=charset_re.search(response.content) 
+#             charset=charset and charset.group(3) or None 
+#             response.encoding = charset
+#         return response.encoding
+#         print response.encoding
+    
     #主爬虫类，处理
     def Spider(self,url):
         
@@ -72,56 +95,50 @@ class Crawler(object):
                 print e
             try:
                 if htmlline.content:
-                    try:
-                        htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                        soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                    except UnicodeEncodeError,e:
-                        #regex1 = r'<meta.+?charset=([-\w]+)'
-                        regex_charset = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
-                        code = re.search(regex_charset,htmlline.content)
-                        htmlline.encoding = code.group(1)
-                        htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                        soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                    except TypeError,e:
-                        print 'chardet'
-                        htmlline.encoding = chardet.detect(htmlline.content)['encoding']
-                        htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                        soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                    finally:
-                        #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                        links = soup.find_all('a',href=re.compile('^http|^/'))
-                    regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
+                     
+                     try:
+                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+                     except UnicodeEncodeError,e:
+                         #regex1 = r'<meta.+?charset=([-\w]+)'
+                         regex_charset = r'((^|;)\s*charset=)([^\"]*)'
+                         #regex_charset = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
+                         code = re.search(regex_charset,htmlline.content)
+                         htmlline.encoding = code.group(1)
+                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+                     except TypeError,e:
+                         print 'chardet'
+                         htmlline.encoding = chardet.detect(htmlline.content)['encoding']
+                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+                     finally:
+                         soup = BeautifulSoup(htmlline.content)#
+                     links = soup.find_all('a',href=re.compile('^http|^/'))
+                     regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
 #                     href_link = []
-                    for item in links:
-                        if 'href' in str(item):
-                            if regex.search(str(item)):
-                                linkname = item.string
-                                try:
-                                    linkaddr = item['href']
-                                except KeyError :
-                                    pass
-                                if linkname is not None:  
-                                    self.character_filter(linkname)
-                                    self.character_filter(linkaddr)
-                                    #if 'NoneType' in str(type(linkname)):
-                                    
-                                    if self.md5(linkaddr) not in self.hashmap:                                   
-                                        self.geturls.append(linkaddr)
-                                        self.hashmap.append(self.md5(linkaddr))
-                                    #self.href_link.append(linkaddr)
-                                    #else: 
-                                        #href_link.append(linkname+':'+linkaddr+'\n')
-                                        #href_link.append(linkaddr)
-                    #self.href_link = set(self.href_link)
-                    #print len(self.unique(self.geturls))
-#                     for urls in self.unique(self.geturls):
-#                         print urls
-#                     self.database.insert_data(self.unique(self.geturls))
-                    #self.database.conn_stop()
-                    #print len(href_link)
-    #                 for i in xrange(len(href_link)):
-    #                     link_url = href_link[i]
-    #                     print link_url
+                for item in links:
+                    
+                    if 'href' in str(item):
+                        if regex.search(str(item)):
+                            linkname = item.string
+                            try:
+                                linkaddr = item['href']
+                            except KeyError :
+                                pass
+                            if linkname is not None:  
+                                self.character_filter(linkname)
+                                self.character_filter(linkaddr)
+                                #if 'NoneType' in str(type(linkname)):
+                                
+                                if self.md5(linkaddr) not in self.hashmap:                                   
+                                    self.geturls.append(linkaddr)
+                                    self.hashmap.append(self.md5(linkaddr))
+                                #self.href_link.append(linkaddr)
+                                #else: 
+                                    #href_link.append(linkname+':'+linkaddr+'\n')
+                                    #href_link.append(linkaddr)
+
             except Exception,e:
                 print e
                 pass  
@@ -192,9 +209,17 @@ start = time.clock()
 # #     def __init__(self):
 # #         DataBase.conn_stop(self)
 # #         self.database.conn_stop()
+# def main():
+#     for i in range(10):
+#         t = ThreadClass(urlQueue)
+#         t.setDaemon(True)
+#         t.start()
+    
 
 
-Spider = Crawler('J:/sql.db',2,'http://www.sohu.com') 
+
+
+Spider = Crawler('J:/sql.db',2,'http://www.sina.com.cn') 
 '''
 In order to enhance the speed, the write 
 the class url handler class alone method, the 
