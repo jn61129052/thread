@@ -31,7 +31,6 @@ import threading
 class Crawler(object):
     def __init__(self,Dbfile,Depth,Url):#,ThreadNum,Key):
         
-        self.count = 0
         #种子URL
         self.url = Url
 #         self.threadnum = ThreadNum
@@ -41,12 +40,13 @@ class Crawler(object):
         #当前爬行深度
         self.currentdepth = 1
         #已经访问的链接
-        self.href_link = []
+#         self.href_link = []
         #经过处理的链接
         self.geturls = []
         #创建hash表，判断是否
         self.hashmap = []
         #数据库存储文件
+        self.result = []
         self.dbfile = Dbfile
         #创建数据库处理对象
         self.database = DataBase(self.dbfile)
@@ -56,7 +56,7 @@ class Crawler(object):
         if charset.lower() == 'utf-8' or charset.lower == 'utf8':
             return  'utf-8'
         elif charset.lower() == 'gb2312' or charset.lower() == 'gbk' or charset.lower() == 'iso-8859-1':
-            return 'gb18030'
+            return 'gb2312'
     #BeautifulSoup 无法正确处理;&nbsp这类的字符，过滤处理类
     def character_filter(self,character):
         character = character.replace(u'\xa0',' ').strip(u'\r\n').strip(u'\n') #BeautifulSoup can not encode ;&nbsp so replace it to ' '
@@ -71,8 +71,9 @@ class Crawler(object):
 
 
     #MD5处理url，用于去重
-    def md5(self,urls):
+    def md5(self,urls):       
         return hashlib.new("md5", urls).hexdigest()
+
     
 #     def handleEncoding(self,response):
 #         if response.encoding == 'ISO-8859-1':
@@ -89,33 +90,33 @@ class Crawler(object):
         if url.strip():
             try:
                 global htmlline
-                htmlline = requests.get(url.strip(),timeout = 3 )
-                self.count += 1
+                htmlline = requests.get(url.strip(),timeout = 5 )
             except Exception,e:
                 print e
             try:
-                if htmlline.content:
+                if htmlline.text:
                      
-                     try:
-                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                     except UnicodeEncodeError,e:
-                         #regex1 = r'<meta.+?charset=([-\w]+)'
-                         regex_charset = r'((^|;)\s*charset=)([^\"]*)'
-                         #regex_charset = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
-                         code = re.search(regex_charset,htmlline.content)
-                         htmlline.encoding = code.group(1)
-                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                     except TypeError,e:
-                         print 'chardet'
-                         htmlline.encoding = chardet.detect(htmlline.content)['encoding']
-                         htmlline.encoding = self.get_response_charset(htmlline.encoding)
-                         #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
-                     finally:
-                         soup = BeautifulSoup(htmlline.content)#
-                     links = soup.find_all('a',href=re.compile('^http|^/'))
-                     regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
+#                      try:
+#                          htmlline.encoding = self.get_response_charset(htmlline.encoding)
+#                          #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+#                      except UnicodeEncodeError,e:
+#                          #regex1 = r'<meta.+?charset=([-\w]+)'
+#                          regex_charset = r'((^|;)\s*charset=)([^\"]*)'
+#                          #regex_charset = r'<meta.*(?:(?:charset\s*=\s*["|\']?)|(?:charset.*content\s*=\s*["|\']\s*))([\d|\w|\-]+)[;|"|\'|\s]'
+#                          code = re.search(regex_charset,htmlline.content)
+#                          htmlline.encoding = code.group(1)
+#                          htmlline.encoding = self.get_response_charset(htmlline.encoding)
+#                          #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+#                      except TypeError,e:
+#                          print 'chardet'
+#                          htmlline.encoding = chardet.detect(htmlline.content)['encoding']
+#                          htmlline.encoding = self.get_response_charset(htmlline.encoding)
+#                          #soup = BeautifulSoup(htmlline.content.decode(htmlline.encoding,'ignore'))
+#                      finally:
+                    #htmlline.encoding = self.get_response_charset(htmlline.encoding)
+                    soup = BeautifulSoup(htmlline.text,from_encoding=htmlline.encoding)#
+                    links = soup.find_all('a',href=re.compile('^http|^/'))
+                    regex = re.compile(r'(https?|ftp|mms):\/\/([A-z0-9]+[_\-]?[A-z0-9]+\.)*[A-z0-9]+\-?[A-z0-9]+\.[A-z]{2,}(\/.*)*\/?')  
 #                     href_link = []
                 for item in links:
                     
@@ -131,17 +132,51 @@ class Crawler(object):
                                 self.character_filter(linkaddr)
                                 #if 'NoneType' in str(type(linkname)):
                                 
-                                if self.md5(linkaddr) not in self.hashmap:                                   
-                                    self.geturls.append(linkaddr)
-                                    self.hashmap.append(self.md5(linkaddr))
+                                #if self.md5(linkaddr) not in self.hashmap:                                   
+                                self.geturls.append(linkaddr)
+                                    #self.hashmap.append(self.md5(linkaddr))
                                 #self.href_link.append(linkaddr)
                                 #else: 
                                     #href_link.append(linkname+':'+linkaddr+'\n')
                                     #href_link.append(linkaddr)
+                return self.geturls        
 
             except Exception,e:
                 print e
-                pass  
+                pass 
+            
+            
+    def GetChildsByParent(self,parent):
+        curr = self.Spider(parent)
+        return curr
+    
+    
+             
+    def GetChilds(self,parents):
+        ReturnValue = []
+        for i in range(len(parents)):
+            #print parents[i]
+            try:
+                ReturnValue.extend(self.GetChildsByParent(parents[i]))
+            except TypeError,e:
+                print e
+                pass
+        print ReturnValue
+        return ReturnValue
+    
+    
+    def start(self):
+        #global self.url
+        while self.currentdepth <= self.depth:
+            #for i in self.GetChilds(self.url):
+            self.url = self.GetChilds(self.url)
+            self.result.extend(self.url)
+            self.currentdepth += 1
+            
+            self.database.insert_data(self.result)
+        print len(self.result)
+        
+        self.conn_close()
              
     def depth_spider(self):
         while self.currentdepth <= self.depth:
@@ -198,6 +233,12 @@ class DataBase(object):
         
     def conn_stop(self):
         self.conn.commit()
+        #去重语句
+        self.cmd.execute('''
+            delete from Crawler where url not in 
+            (select distinct url from Crawler group by id )
+            ''')
+        self.conn.commit()
         self.conn.close()
     
     
@@ -219,7 +260,7 @@ start = time.clock()
 
 
 
-Spider = Crawler('J:/sql.db',2,'http://www.sina.com.cn') 
+Spider = Crawler('J:/sql.db',2,['http://www.creasyn.com/']) 
 '''
 In order to enhance the speed, the write 
 the class url handler class alone method, the 
@@ -230,7 +271,7 @@ call the main method of handling database
 # 
 #     for url in file_object:
 #         print url
-Spider.depth_spider()
+Spider.start()
 #     save = Save()
 #     save()
         
